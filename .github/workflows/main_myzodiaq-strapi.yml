@@ -9,10 +9,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -27,16 +23,10 @@ jobs:
 
       - name: Build Strapi
         run: npm run build
-      
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_273599D0968046F18EC5FDC43B0F2415 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9AEC98E1E32D4C5C891110D92E3E93BC }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_EB8D8F24A79A433C9D0DD89235F40969 }}
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'myzodiaq-strapi'
-          slot-name: 'Production'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .
