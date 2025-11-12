@@ -23,7 +23,13 @@ jobs:
           npm ci
           npm run build
 
-      - name: Create deployment package with node_modules
+      - name: List build output (debug)
+        run: |
+          ls -la
+          ls -la dist || echo "No dist folder"
+          ls -la build || echo "No build folder"
+
+      - name: Create deployment package with build
         run: |
           zip -r deploy.zip . -x "*.git*" ".github/*"
 
@@ -43,7 +49,11 @@ jobs:
             --name myzodiaq-strapi \
             --src-path deploy.zip \
             --type zip \
-            --async true
+            --async true \
+            --timeout 1800
+
+      - name: Wait for deployment
+        run: sleep 120
 
       - name: Start app
         run: |
