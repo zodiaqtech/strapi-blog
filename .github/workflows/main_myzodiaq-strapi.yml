@@ -22,12 +22,17 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Azure Web App (Async)
         run: |
           az webapp deploy \
             --resource-group strapi-blog-rg \
             --name myzodiaq-strapi \
             --src-path deploy.zip \
             --type zip \
-            --timeout 600 \
-            --async false
+            --async true
+
+      - name: Wait and check status
+        run: |
+          echo "Deployment initiated. Checking status..."
+          sleep 30
+          az webapp show --name myzodiaq-strapi --resource-group strapi-blog-rg --query "state" -o tsv
