@@ -1,4 +1,4 @@
-name: Deploy Strapi to Azure
+name: Deploy Pre-Built Strapi to Azure
 
 on:
   push:
@@ -13,16 +13,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create deployment package (without node_modules)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install and Build
         run: |
-          zip -r deploy.zip . -x "*.git*" "node_modules/*" ".cache/*" "dist/*" "build/*" ".tmp/*"
+          npm ci
+          npm run build
+
+      - name: Create deployment package with node_modules
+        run: |
+          zip -r deploy.zip . -x "*.git*" ".github/*"
 
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Web App (Async)
+      - name: Stop app before deployment
+        run: |
+          az webapp stop --name myzodiaq-strapi --resource-group strapi-blog-rg
+
+      - name: Deploy to Azure (no build)
         run: |
           az webapp deploy \
             --resource-group strapi-blog-rg \
@@ -31,8 +45,6 @@ jobs:
             --type zip \
             --async true
 
-      - name: Wait and check status
+      - name: Start app
         run: |
-          echo "Deployment initiated. Checking status..."
-          sleep 30
-          az webapp show --name myzodiaq-strapi --resource-group strapi-blog-rg --query "state" -o tsv
+          az webapp start --name myzodiaq-strapi --resource-group strapi-blog-rg
