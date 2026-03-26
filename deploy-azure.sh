@@ -266,36 +266,51 @@ fi
 
 step "Container App — Strapi"
 
-# Build env-vars string for Container App
-ENV_VARS=(
+# ── Secrets (values with special chars like = + , go here) ────────────────────
+# Container Apps secrets are referenced in env vars with secretref:name
+SECRETS_LIST=(
+  "db-password=${PG_ADMIN_PASSWORD}"
+  "storage-key=${STORAGE_KEY}"
+  "app-keys=${APP_KEYS}"
+  "api-token-salt=${API_TOKEN_SALT}"
+  "admin-jwt-secret=${ADMIN_JWT_SECRET}"
+  "transfer-token-salt=${TRANSFER_TOKEN_SALT}"
+  "jwt-secret=${JWT_SECRET}"
+)
+
+# Plain (non-secret) env vars + secretref pointers
+PLAIN_ENV_VARS=(
   "NODE_ENV=production"
   "DATABASE_CLIENT=postgres"
   "DATABASE_HOST=${PG_HOST}"
   "DATABASE_PORT=5432"
   "DATABASE_NAME=${PG_DATABASE}"
   "DATABASE_USERNAME=${PG_ADMIN_USER}"
-  "DATABASE_PASSWORD=${PG_ADMIN_PASSWORD}"
+  "DATABASE_PASSWORD=secretref:db-password"
   "DATABASE_SSL=true"
-  "APP_KEYS=${APP_KEYS}"
-  "API_TOKEN_SALT=${API_TOKEN_SALT}"
-  "ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET}"
-  "TRANSFER_TOKEN_SALT=${TRANSFER_TOKEN_SALT}"
-  "JWT_SECRET=${JWT_SECRET}"
   "STORAGE_ACCOUNT=${STORAGE_ACCOUNT}"
-  "STORAGE_ACCOUNT_KEY=${STORAGE_KEY}"
+  "STORAGE_ACCOUNT_KEY=secretref:storage-key"
   "STORAGE_CONTAINER_NAME=${STORAGE_CONTAINER}"
   "STORAGE_URL=${STORAGE_URL}"
+  "APP_KEYS=secretref:app-keys"
+  "API_TOKEN_SALT=secretref:api-token-salt"
+  "ADMIN_JWT_SECRET=secretref:admin-jwt-secret"
+  "TRANSFER_TOKEN_SALT=secretref:transfer-token-salt"
+  "JWT_SECRET=secretref:jwt-secret"
 )
-
-ENV_VARS_STR=$(printf '%s ' "${ENV_VARS[@]}")
 
 if az containerapp show --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
   info "Updating existing Container App..."
+  az containerapp secret set \
+    --name "$CONTAINER_APP" \
+    --resource-group "$RESOURCE_GROUP" \
+    --secrets "${SECRETS_LIST[@]}" \
+    --output none
   az containerapp update \
     --name "$CONTAINER_APP" \
     --resource-group "$RESOURCE_GROUP" \
     --image "$CONTAINER_IMAGE" \
-    --set-env-vars $ENV_VARS_STR \
+    --set-env-vars "${PLAIN_ENV_VARS[@]}" \
     --output none
 else
   info "Creating Container App..."
@@ -313,7 +328,8 @@ else
     --max-replicas 3 \
     --cpu 0.5 \
     --memory 1Gi \
-    --set-env-vars $ENV_VARS_STR \
+    --secrets "${SECRETS_LIST[@]}" \
+    --env-vars "${PLAIN_ENV_VARS[@]}" \
     --output none
 fi
 
