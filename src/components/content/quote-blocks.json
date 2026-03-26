@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_content_quote_blocks",
+  "info": {
+    "displayName": "Quote Block",
+    "icon": "quote",
+    "description": "Blockquote with attribution"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "text"
+    },
+    "quote": {
+      "type": "text"
+    },
+    "author": {
+      "type": "string"
+    },
+    "attribution": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+services:
+  strapi:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_CLIENT: ${DATABASE_CLIENT:-postgres}
+      DATABASE_HOST: ${DATABASE_HOST:-db}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-strapi_db}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-strapi}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-strapi_password}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      APP_KEYS: ${APP_KEYS:-key1,key2,key3,key4}
+      API_TOKEN_SALT: ${API_TOKEN_SALT:-local-api-token-salt}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-local-admin-jwt-secret}
+      TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT:-local-transfer-token-salt}
+      JWT_SECRET: ${JWT_SECRET:-local-jwt-secret}
+      NODE_ENV: ${NODE_ENV:-production}
+      # Azure Blob Storage (optional — leave empty to use local uploads)
+      STORAGE_ACCOUNT: ${STORAGE_ACCOUNT:-}
+      STORAGE_ACCOUNT_KEY: ${STORAGE_ACCOUNT_KEY:-}
+      STORAGE_CONTAINER_NAME: ${STORAGE_CONTAINER_NAME:-}
+      STORAGE_URL: ${STORAGE_URL:-}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:1337}
+    ports:
+      - '${PORT:-1337}:1337'
+    volumes:
+      - strapi_uploads:/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-strapi_db}
+      POSTGRES_USER: ${DATABASE_USERNAME:-strapi}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-strapi_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DATABASE_USERNAME:-strapi} -d ${DATABASE_NAME:-strapi_db}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  strapi_uploads:

@@ -1,0 +1,10 @@
+{
+  "collectionName": "components_content_table_of_contents",
+  "info": {
+    "displayName": "Table Of Contents",
+    "icon": "list",
+    "description": "Auto-generated table of contents"
+  },
+  "options": {},
+  "attributes": {}
+}

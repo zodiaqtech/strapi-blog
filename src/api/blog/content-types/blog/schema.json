@@ -1,0 +1,144 @@
+{
+  "kind": "collectionType",
+  "collectionName": "blogs",
+  "info": {
+    "singularName": "blog",
+    "pluralName": "blogs",
+    "displayName": "Blog",
+    "description": "Blog posts"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "heading": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "heading"
+    },
+    "breadcrumbTitle": {
+      "type": "string"
+    },
+    "excerpt": {
+      "type": "text",
+      "required": true
+    },
+    "subtitle": {
+      "type": "text"
+    },
+    "thumbnailAlt": {
+      "type": "string",
+      "required": true
+    },
+    "featuredImageAlt": {
+      "type": "string"
+    },
+    "publishDate": {
+      "type": "date",
+      "required": true
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": ["generic", "horoscope"]
+    },
+    "visibilityStatus": {
+      "type": "enumeration",
+      "enum": ["draft", "live"]
+    },
+    "zodiacSign": {
+      "type": "enumeration",
+      "enum": [
+        "aries",
+        "taurus",
+        "gemini",
+        "cancer",
+        "leo",
+        "virgo",
+        "libra",
+        "scorpio",
+        "sagittarius",
+        "capricorn",
+        "aquarius",
+        "pisces"
+      ]
+    },
+    "noindex": {
+      "type": "boolean"
+    },
+    "trending": {
+      "type": "boolean"
+    },
+    "priority": {
+      "type": "integer"
+    },
+    "seo_schema": {
+      "type": "json"
+    },
+    "thumbnail": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["images"]
+    },
+    "featured_image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "author": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::author.author",
+      "inversedBy": "blogs"
+    },
+    "category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::category.category",
+      "inversedBy": "blogs"
+    },
+    "sub_category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::sub-category.sub-category",
+      "inversedBy": "blogs"
+    },
+    "tags": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::tag.tag",
+      "mappedBy": "blogs"
+    },
+    "related_articles": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::blog.blog"
+    },
+    "seo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.seo"
+    },
+    "body": {
+      "type": "dynamiczone",
+      "components": [
+        "content.heading-blocks",
+        "content.paragraphs",
+        "content.image-blocks",
+        "content.video-embeds",
+        "content.quote-blocks",
+        "content.call-to-actions",
+        "content.table-of-contents",
+        "content.tables",
+        "body.bodies",
+        "shared.rich-text",
+        "shared.quote",
+        "shared.media",
+        "shared.slider"
+      ]
+    }
+  }
+}

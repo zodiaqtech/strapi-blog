@@ -1,0 +1,120 @@
+name: Deploy Strapi to Azure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:   # allow manual trigger from GitHub UI
+
+env:
+  RESOURCE_GROUP:     ${{ vars.RESOURCE_GROUP     || 'strapi-blog-rg'   }}
+  ACR_NAME:           ${{ vars.ACR_NAME            || 'strapiblogacr'    }}
+  CONTAINER_APP_NAME: ${{ vars.CONTAINER_APP_NAME  || 'strapi-blog-app'  }}
+  APP_IMAGE:          strapi-blog
+
+jobs:
+  # ── 1. Build & push Docker image via ACR Tasks ─────────────────────────────
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build & push via ACR Tasks (no local Docker needed)
+        id: push
+        run: |
+          IMAGE_REF="${{ env.ACR_NAME }}.azurecr.io/${{ env.APP_IMAGE }}:${{ github.sha }}"
+
+          az acr build \
+            --registry "${{ env.ACR_NAME }}" \
+            --image    "${{ env.APP_IMAGE }}:${{ github.sha }}" \
+            --image    "${{ env.APP_IMAGE }}:latest" \
+            --file     Dockerfile \
+            .
+
+          echo "image=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Build summary
+        run: echo "✅ Image built and pushed → ${{ steps.push.outputs.image }}"
+
+  # ── 2. Deploy new revision to Container Apps ───────────────────────────────
+  deploy:
+    name: Deploy to Azure Container Apps
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production     # optional: require manual approval in GitHub Settings
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Update Container App with new image & secrets
+        run: |
+          az containerapp update \
+            --name           "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --image          "${{ needs.build.outputs.image }}" \
+            --set-env-vars \
+              NODE_ENV=production \
+              DATABASE_CLIENT=postgres \
+              "DATABASE_HOST=${{ secrets.DATABASE_HOST }}" \
+              DATABASE_PORT=5432 \
+              DATABASE_NAME=strapi_db \
+              "DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}" \
+              "DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}" \
+              DATABASE_SSL=true \
+              "APP_KEYS=${{ secrets.APP_KEYS }}" \
+              "API_TOKEN_SALT=${{ secrets.API_TOKEN_SALT }}" \
+              "ADMIN_JWT_SECRET=${{ secrets.ADMIN_JWT_SECRET }}" \
+              "TRANSFER_TOKEN_SALT=${{ secrets.TRANSFER_TOKEN_SALT }}" \
+              "JWT_SECRET=${{ secrets.JWT_SECRET }}" \
+              "STORAGE_ACCOUNT=${{ secrets.STORAGE_ACCOUNT }}" \
+              "STORAGE_ACCOUNT_KEY=${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+              "STORAGE_CONTAINER_NAME=${{ secrets.STORAGE_CONTAINER_NAME }}" \
+              "STORAGE_URL=${{ secrets.STORAGE_URL }}"
+
+      - name: Wait for active revision to be ready
+        run: |
+          echo "Polling Container App status..."
+          for i in $(seq 1 18); do
+            RUNNING=$(az containerapp revision list \
+              --name           "${{ env.CONTAINER_APP_NAME }}" \
+              --resource-group "${{ env.RESOURCE_GROUP }}" \
+              --query "[?properties.active==\`true\`].properties.healthState" -o tsv 2>/dev/null || echo "Unknown")
+            echo "  [${i}/18] health: ${RUNNING}"
+            [[ "$RUNNING" == "Healthy" ]] && break
+            sleep 10
+          done
+
+      - name: Get deployed URL
+        id: url
+        run: |
+          FQDN=$(az containerapp show \
+            --name           "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "fqdn=${FQDN}" >> "$GITHUB_OUTPUT"
+          echo "✅ Live at: https://${FQDN}/admin"
+
+      - name: Write Job Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 🚀 Deployment Complete
+
+          | | |
+          |---|---|
+          | **Admin Panel** | https://${{ steps.url.outputs.fqdn }}/admin |
+          | **API** | https://${{ steps.url.outputs.fqdn }}/api |
+          | **Image** | \`${{ needs.build.outputs.image }}\` |
+          | **Commit** | \`${{ github.sha }}\` |
+          | **Branch** | \`${{ github.ref_name }}\` |
+          EOF

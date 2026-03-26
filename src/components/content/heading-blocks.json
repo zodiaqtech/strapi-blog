@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_content_heading_blocks",
+  "info": {
+    "displayName": "Heading Block",
+    "icon": "heading",
+    "description": "Heading with level"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "string"
+    },
+    "heading": {
+      "type": "string"
+    },
+    "level": {
+      "type": "integer"
+    },
+    "heading_level": {
+      "type": "integer"
+    }
+  }
+}

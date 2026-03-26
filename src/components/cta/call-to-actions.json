@@ -1,0 +1,20 @@
+{
+  "collectionName": "components_cta_call_to_actions",
+  "info": {
+    "displayName": "Call To Action",
+    "icon": "cursor",
+    "description": "CTA with URL"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "string"
+    },
+    "button_label": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    }
+  }
+}

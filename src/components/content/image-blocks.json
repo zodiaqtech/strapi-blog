@@ -1,0 +1,29 @@
+{
+  "collectionName": "components_content_image_blocks",
+  "info": {
+    "displayName": "Image Block",
+    "icon": "picture",
+    "description": "Image with caption"
+  },
+  "options": {},
+  "attributes": {
+    "src": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "alt_text": {
+      "type": "string"
+    },
+    "caption": {
+      "type": "string"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    }
+  }
+}

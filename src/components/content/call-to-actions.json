@@ -1,0 +1,20 @@
+{
+  "collectionName": "components_content_call_to_actions",
+  "info": {
+    "displayName": "Call To Action",
+    "icon": "cursor",
+    "description": "CTA block with button"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "text"
+    },
+    "button_label": {
+      "type": "string"
+    },
+    "button_url": {
+      "type": "string"
+    }
+  }
+}

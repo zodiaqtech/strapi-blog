@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_body_bodies",
+  "info": {
+    "displayName": "Body",
+    "icon": "align-justify",
+    "description": "Rich body content"
+  },
+  "options": {},
+  "attributes": {
+    "paragraph": {
+      "type": "json"
+    }
+  }
+}

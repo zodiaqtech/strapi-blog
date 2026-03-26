@@ -1,0 +1,35 @@
+{
+  "collectionName": "components_content_tables",
+  "info": {
+    "displayName": "Table",
+    "icon": "grid",
+    "description": "Data table"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "headers": {
+      "type": "json"
+    },
+    "rows": {
+      "type": "json"
+    },
+    "striped": {
+      "type": "boolean"
+    },
+    "bordered": {
+      "type": "boolean"
+    },
+    "responsive": {
+      "type": "boolean"
+    },
+    "alignment": {
+      "type": "string"
+    },
+    "size": {
+      "type": "string"
+    }
+  }
+}
