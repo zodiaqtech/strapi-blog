@@ -28,6 +28,9 @@ done
 # ══════════════════════════════════════════════════════════════════════════════
 #  ①  CONFIGURATION — edit these values before running
 # ══════════════════════════════════════════════════════════════════════════════
+# Resolve absolute path to this script's directory (works regardless of cwd)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 RESOURCE_GROUP="strapi-blog-rg"
 LOCATION="eastus"                          # az account list-locations -o table
 APP_NAME="strapi-blog"                     # base name — must be lowercase, no spaces
@@ -57,11 +60,11 @@ ADMIN_JWT_SECRET="$(openssl rand -hex 32)"
 TRANSFER_TOKEN_SALT="$(openssl rand -hex 32)"
 JWT_SECRET="$(openssl rand -hex 32)"
 
-# DB backup path (relative to this script)
-DB_BACKUP="$(dirname "$0")/../strapi_db (1).sql.gz"
+# DB backup path (one level up from strapi-blog/)
+DB_BACKUP="$(cd "$(dirname "$0")/.." && pwd)/strapi_db (1).sql.gz"
 
 # Media path (local uploads directory — populated by download_media.sh)
-MEDIA_DIR="$(dirname "$0")/../strapi-blog/public/uploads"
+MEDIA_DIR="$(cd "$(dirname "$0")" && pwd)/public/uploads"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  ②  PRE-FLIGHT CHECKS
@@ -111,8 +114,8 @@ info "Building and pushing Docker image..."
 az acr build \
   --registry "$ACR_NAME" \
   --image "${APP_NAME}:latest" \
-  --file "$(dirname "$0")/strapi-blog/Dockerfile" \
-  "$(dirname "$0")/strapi-blog"
+  --file "${SCRIPT_DIR}/Dockerfile" \
+  "${SCRIPT_DIR}"
 success "Image pushed: ${CONTAINER_IMAGE}"
 
 ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
@@ -327,7 +330,7 @@ success "Container App deployed: https://${APP_URL}"
 # ══════════════════════════════════════════════════════════════════════════════
 step "Saving credentials"
 
-SECRETS_FILE="$(dirname "$0")/.azure-secrets.env"
+SECRETS_FILE="${SCRIPT_DIR}/.azure-secrets.env"
 cat > "$SECRETS_FILE" << SECRETS
 # ── Azure Deployment Secrets ── $(date)
 # ⚠️  DO NOT commit this file to git
