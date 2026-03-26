@@ -18,10 +18,12 @@ step()    { echo -e "\n${BLUE}━━━ $* ━━━${NC}"; }
 # ── Flags ─────────────────────────────────────────────────────────────────────
 SKIP_DB_RESTORE=false
 SKIP_MEDIA_UPLOAD=false
+SKIP_ACR_BUILD=false
 for arg in "$@"; do
   case $arg in
     --skip-db-restore)   SKIP_DB_RESTORE=true ;;
     --skip-media-upload) SKIP_MEDIA_UPLOAD=true ;;
+    --skip-acr-build)    SKIP_ACR_BUILD=true ;;
   esac
 done
 
@@ -32,7 +34,7 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 RESOURCE_GROUP="strapi-blog-rg"
-LOCATION="eastus"                          # az account list-locations -o table
+LOCATION="centralus"                       # az account list-locations -o table
 APP_NAME="strapi-blog"                     # base name — must be lowercase, no spaces
 
 # Container Registry (globally unique)
@@ -110,13 +112,17 @@ else
   success "Created ACR: ${ACR_NAME}"
 fi
 
-info "Building and pushing Docker image..."
-az acr build \
-  --registry "$ACR_NAME" \
-  --image "${APP_NAME}:latest" \
-  --file "${SCRIPT_DIR}/Dockerfile" \
-  "${SCRIPT_DIR}"
-success "Image pushed: ${CONTAINER_IMAGE}"
+if [ "$SKIP_ACR_BUILD" = false ]; then
+  info "Building and pushing Docker image..."
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "${APP_NAME}:latest" \
+    --file "${SCRIPT_DIR}/Dockerfile" \
+    "${SCRIPT_DIR}"
+  success "Image pushed: ${CONTAINER_IMAGE}"
+else
+  warn "Skipping ACR build (--skip-acr-build) — using existing image in registry"
+fi
 
 ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
 
