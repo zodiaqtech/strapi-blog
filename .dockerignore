@@ -7,3 +7,5 @@ dist
 *.log
 .git
 .gitignore
+public/uploads
+public/format-variants

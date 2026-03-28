@@ -20,8 +20,12 @@
     "metaImage": {
       "type": "media",
       "multiple": false,
-      "required": false,
+      "required": true,
       "allowedTypes": ["images"]
+    },
+    "canonicalUrl": {
+      "type": "string",
+      "required": true
     }
   }
 }
