@@ -21,6 +21,9 @@ RUN find src -name "*.json" | while read f; do \
       cp "$f" "$dest"; \
     done
 
+# Ensure public directory always exists (required by production stage COPY)
+RUN mkdir -p /app/public/uploads
+
 # ── Stage 2: Production ──────────────────────────────────────────────────────
 FROM node:20-alpine AS production
 
