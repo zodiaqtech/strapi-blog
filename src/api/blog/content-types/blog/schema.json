@@ -18,29 +18,36 @@
   "attributes": {
     "heading": {
       "type": "string",
-      "required": true
+      "required": true,
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "slug": {
       "type": "uid",
       "targetField": "heading",
-      "required": true
+      "required": true,
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "breadcrumbTitle": {
-      "type": "string"
+      "type": "string",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "excerpt": {
       "type": "text",
-      "required": true
+      "required": true,
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "subtitle": {
-      "type": "text"
+      "type": "text",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "thumbnailAlt": {
       "type": "string",
-      "required": true
+      "required": true,
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "featuredImageAlt": {
-      "type": "string"
+      "type": "string",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "publishDate": {
       "type": "date",
@@ -81,19 +88,22 @@
       "type": "integer"
     },
     "seo_schema": {
-      "type": "json"
+      "type": "json",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "thumbnail": {
       "type": "media",
       "multiple": false,
       "required": true,
-      "allowedTypes": ["images"]
+      "allowedTypes": ["images"],
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "featured_image": {
       "type": "media",
       "multiple": false,
       "required": false,
-      "allowedTypes": ["images"]
+      "allowedTypes": ["images"],
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "author": {
       "type": "relation",
@@ -127,7 +137,8 @@
     "seo": {
       "type": "component",
       "repeatable": false,
-      "component": "shared.seo"
+      "component": "shared.seo",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "body": {
       "type": "dynamiczone",
@@ -145,7 +156,8 @@
         "shared.quote",
         "shared.media",
         "shared.slider"
-      ]
+      ],
+      "pluginOptions": { "i18n": { "localized": true } }
     }
   }
 }
