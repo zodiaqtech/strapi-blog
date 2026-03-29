@@ -43,7 +43,7 @@ const processingDocs = new Set<string>();
 
 export default {
   register({ strapi }: { strapi: any }) {
-    strapi.documents.middleware.use(async (ctx: any, next: any) => {
+    strapi.documents.use(async (ctx: any, next: any) => {
       const uid: string = ctx.uid;
       const config = PROTECTED[uid];
       const editedLocale: string | undefined = ctx.params?.locale;
