@@ -109,30 +109,35 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::author.author",
-      "inversedBy": "blogs"
+      "inversedBy": "blogs",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "category": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::category.category",
-      "inversedBy": "blogs"
+      "inversedBy": "blogs",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "sub_category": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::sub-category.sub-category",
-      "inversedBy": "blogs"
+      "inversedBy": "blogs",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "tags": {
       "type": "relation",
       "relation": "manyToMany",
       "target": "api::tag.tag",
-      "mappedBy": "blogs"
+      "mappedBy": "blogs",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "relatedArticles": {
       "type": "relation",
       "relation": "manyToMany",
-      "target": "api::blog.blog"
+      "target": "api::blog.blog",
+      "pluginOptions": { "i18n": { "localized": true } }
     },
     "seo": {
       "type": "component",
