@@ -1,108 +1,105 @@
 /**
  * Strapi v5 Document Service Middleware
  *
- * Problem: In Strapi v5, relations between two localized content types are stored
- * at the document level. When you update locale A's relation, Strapi automatically
- * syncs the same relation (by document_id) to ALL other locales.
+ * Problem: In Strapi v5, relations between localized content types are stored at
+ * the document level. When you update locale A's relation, Strapi syncs it to ALL
+ * other locales automatically — even with pluginOptions.i18n.localized = true.
  *
- * Fix: Before saving a blog update, snapshot the relation link IDs for every OTHER
- * locale row. After Strapi's save (which overwrites them), restore those snapshots.
+ * Fix: Before the save, snapshot relation row IDs for every OTHER locale using
+ * strapi.db.query (bypasses this middleware). After Strapi's save restores them
+ * using the same DB-level query. A processingDocs Set prevents infinite loops.
  *
  * Fields protected per-locale: author, category, sub_category, tags, relatedArticles
  */
 
-const LOCALE_RELATION_FIELDS = [
-  'author',
-  'category',
-  'sub_category',
-  'tags',
-  'relatedArticles',
-];
+const RELATION_FIELDS = ['author', 'category', 'sub_category', 'tags', 'relatedArticles'];
+
+// Guards against re-entrant middleware calls triggered by our own restore writes
+const processingDocs = new Set<string>();
 
 export default {
   register({ strapi }: { strapi: any }) {
     strapi.documents.middleware.use(async (ctx: any, next: any) => {
-      // Only intercept blog create / update that carry a locale
+      const documentId: string | undefined = ctx.params?.documentId;
+      const editedLocale: string | undefined = ctx.params?.locale;
+
+      // Only intercept blog create/update that target a specific locale document
       if (
         ctx.uid !== 'api::blog.blog' ||
         !['create', 'update'].includes(ctx.action) ||
-        !ctx.params?.locale
+        !editedLocale ||
+        !documentId ||
+        processingDocs.has(documentId)   // skip our own restore calls
       ) {
         return next();
       }
 
-      const editedLocale: string = ctx.params.locale;
-      const documentId: string | undefined = ctx.params?.documentId;
+      // ── Snapshot: read current relations for every OTHER locale row ──────────
+      let snapshots: Array<{
+        rowId: number;
+        locale: string;
+        author: any;
+        category: any;
+        sub_category: any;
+        tags: any[];
+        relatedArticles: any[];
+      }> = [];
 
-      // ── Snapshot: record relation IDs for every locale OTHER than the one being edited ──
-      let snapshots: Record<string, Record<string, any>> = {};
+      try {
+        const allRows = await strapi.db.query('api::blog.blog').findMany({
+          where: { documentId },
+          populate: {
+            author: { select: ['id'] },
+            category: { select: ['id'] },
+            sub_category: { select: ['id'] },
+            tags: { select: ['id'] },
+            relatedArticles: { select: ['id'] },
+          },
+        });
 
-      if (documentId) {
-        try {
-          // Fetch all locale versions of this document
-          const allLocales = await strapi.documents('api::blog.blog').findMany({
-            filters: { documentId },
-            populate: LOCALE_RELATION_FIELDS.reduce((acc: any, f) => {
-              acc[f] = { fields: ['id', 'documentId', 'locale'] };
-              return acc;
-            }, {}),
-            locale: 'all' as any,
+        for (const row of allRows ?? []) {
+          if (row.locale === editedLocale) continue;
+          snapshots.push({
+            rowId: row.id,
+            locale: row.locale,
+            author: row.author ?? null,
+            category: row.category ?? null,
+            sub_category: row.sub_category ?? null,
+            tags: row.tags ?? [],
+            relatedArticles: row.relatedArticles ?? [],
           });
-
-          for (const localeDoc of allLocales || []) {
-            if (localeDoc.locale === editedLocale) continue; // skip the one being edited
-
-            snapshots[localeDoc.locale] = {};
-            for (const field of LOCALE_RELATION_FIELDS) {
-              const val = localeDoc[field];
-              if (!val) {
-                snapshots[localeDoc.locale][field] = null;
-              } else if (Array.isArray(val)) {
-                // manyToMany → store array of documentIds
-                snapshots[localeDoc.locale][field] = val.map((v: any) => ({
-                  documentId: v.documentId,
-                }));
-              } else {
-                // manyToOne → store single documentId
-                snapshots[localeDoc.locale][field] = { documentId: val.documentId };
-              }
-            }
-          }
-        } catch (err) {
-          strapi.log.warn('[locale-relation-guard] snapshot failed:', err);
         }
+      } catch (err) {
+        strapi.log.warn('[locale-relation-guard] snapshot failed:', err);
       }
 
-      // ── Run Strapi's normal save ──
-      const result = await next();
+      // ── Run Strapi's normal save (may sync relations to other locales) ────────
+      processingDocs.add(documentId);
+      let result: any;
+      try {
+        result = await next();
+      } finally {
+        processingDocs.delete(documentId);
+      }
 
-      // ── Restore: write back the snapshotted relations for every other locale ──
-      if (documentId && Object.keys(snapshots).length > 0) {
-        for (const [locale, relations] of Object.entries(snapshots)) {
-          try {
-            const updateData: Record<string, any> = {};
-            for (const field of LOCALE_RELATION_FIELDS) {
-              const snap = relations[field];
-              if (snap === null) {
-                updateData[field] = null;
-              } else if (Array.isArray(snap)) {
-                updateData[field] = snap; // restore array of documentIds
-              } else {
-                updateData[field] = snap.documentId ?? null;
-              }
-            }
-
-            await strapi.documents('api::blog.blog').update({
-              documentId,
-              locale,
-              data: updateData,
-            });
-          } catch (err) {
-            strapi.log.warn(
-              `[locale-relation-guard] restore failed for locale ${locale}:`,
-              err
-            );
-          }
+      // ── Restore: write back snapshotted relations for other locale rows ───────
+      for (const snap of snapshots) {
+        try {
+          await strapi.db.query('api::blog.blog').update({
+            where: { id: snap.rowId },
+            data: {
+              author: snap.author ? snap.author.id : null,
+              category: snap.category ? snap.category.id : null,
+              sub_category: snap.sub_category ? snap.sub_category.id : null,
+              tags: snap.tags.map((t: any) => t.id),
+              relatedArticles: snap.relatedArticles.map((r: any) => r.id),
+            },
+          });
+        } catch (err) {
+          strapi.log.warn(
+            `[locale-relation-guard] restore failed for locale "${snap.locale}" (row ${snap.rowId}):`,
+            err
+          );
         }
       }
 
