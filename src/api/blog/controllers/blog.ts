@@ -21,16 +21,22 @@ export default factories.createCoreController('api::blog.blog', ({ strapi }) => 
       },
     };
 
-    // Use db.query to bypass sanitizeQuery permission stripping on custom routes.
+    // Use strapi.documents() which correctly handles Strapi v5 locale + draft/publish state.
+    // strapi.db.query() is low-level and does not distinguish draft vs published rows,
+    // causing older published HI entries to return null (draft row hit instead of published).
     // Try requested locale first, fall back to 'en' if no translation exists.
-    let entity = await strapi.db.query('api::blog.blog').findOne({
-      where: { slug, locale },
+    let entity = await strapi.documents('api::blog.blog').findFirst({
+      filters: { slug },
+      locale,
+      status: 'published',
       populate,
     });
 
     if (!entity && locale !== 'en') {
-      entity = await strapi.db.query('api::blog.blog').findOne({
-        where: { slug, locale: 'en' },
+      entity = await strapi.documents('api::blog.blog').findFirst({
+        filters: { slug },
+        locale: 'en',
+        status: 'published',
         populate,
       });
     }
