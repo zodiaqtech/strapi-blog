@@ -38,7 +38,10 @@ module.exports = {
         const buffer     = file.buffer;
 
         await blockBlob.uploadData(buffer, {
-          blobHTTPHeaders: { blobContentType: file.mime },
+          blobHTTPHeaders: {
+            blobContentType: file.mime,
+            blobCacheControl: 'public, max-age=31536000, immutable',
+          },
         });
 
         file.url = getPublicURL(blobName);
@@ -53,7 +56,10 @@ module.exports = {
         const stream    = file.stream instanceof Readable ? file.stream : Readable.from(file.stream);
 
         await blockBlob.uploadStream(stream, undefined, undefined, {
-          blobHTTPHeaders: { blobContentType: file.mime },
+          blobHTTPHeaders: {
+            blobContentType: file.mime,
+            blobCacheControl: 'public, max-age=31536000, immutable',
+          },
         });
 
         file.url = getPublicURL(blobName);
