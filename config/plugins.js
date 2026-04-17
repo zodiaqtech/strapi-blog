@@ -16,6 +16,7 @@ module.exports = ({ env }) => {
               containerName: env('STORAGE_CONTAINER_NAME', 'strapi-uploads'),
               cdnBaseURL:    env('STORAGE_URL', ''),   // e.g. https://strapiblogmedia.blob.core.windows.net
             },
+            sizeLimit: 250 * 1024 * 1024, // 250 MB
             actionOptions: {
               upload:       {},
               uploadStream: {},

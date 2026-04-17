@@ -132,5 +132,64 @@ export default {
     });
   },
 
-  bootstrap(/*{ strapi }*/) {},
+  bootstrap({ strapi }: { strapi: any }) {
+    // Warm the response cache with all published blogs in the background.
+    // Runs after a short delay to ensure the HTTP server is fully ready.
+    setTimeout(() => warmCache(strapi), 15_000);
+  },
 };
+
+// ── Cache warmer ────────────────────────────────────────────────────────────
+async function warmCache(strapi: any) {
+  const port    = strapi.config.get('server.port', 1337);
+  const baseUrl = `http://localhost:${port}`;
+  const BATCH   = 20;   // concurrent requests per batch
+  const DELAY   = 200;  // ms between batches — avoids overwhelming the server
+
+  try {
+    strapi.log.info('[cache-warm] Fetching published blog slugs from DB...');
+
+    // One DB query — get slug + locale for every published blog row
+    const rows: { slug: string; locale: string }[] = await strapi.db
+      .query('api::blog.blog')
+      .findMany({
+        where:  { publishedAt: { $notNull: true } },
+        select: ['slug', 'locale'],
+      });
+
+    // Deduplicate (draft rows share slug/locale with published — filter unique)
+    const seen  = new Set<string>();
+    const urls: string[] = [];
+    for (const { slug, locale } of rows) {
+      const key = `${locale}::${slug}`;
+      if (!slug || seen.has(key)) continue;
+      seen.add(key);
+      urls.push(`${baseUrl}/api/blogs/slug/${slug}?locale=${locale}&populate=*`);
+    }
+
+    strapi.log.info(`[cache-warm] Warming ${urls.length} blog URLs in batches of ${BATCH}...`);
+
+    let done = 0;
+    for (let i = 0; i < urls.length; i += BATCH) {
+      const batch = urls.slice(i, i + BATCH);
+      await Promise.all(
+        batch.map(url =>
+          fetch(url).catch(err =>
+            strapi.log.warn(`[cache-warm] Failed: ${url} — ${err.message}`)
+          )
+        )
+      );
+      done += batch.length;
+      if (done % 200 === 0 || done === urls.length) {
+        strapi.log.info(`[cache-warm] Progress: ${done}/${urls.length}`);
+      }
+      if (i + BATCH < urls.length) {
+        await new Promise(r => setTimeout(r, DELAY));
+      }
+    }
+
+    strapi.log.info(`[cache-warm] Done — ${urls.length} blog URLs cached.`);
+  } catch (err: any) {
+    strapi.log.error(`[cache-warm] Error: ${err.message}`);
+  }
+}
