@@ -46,17 +46,42 @@ async function revalidateNextJs(event: string, slug?: string): Promise<void> {
 
 export default {
   async afterCreate(event: any) {
-    const { slug } = event.result ?? {};
+    const { slug, publishedAt } = event.result ?? {};
+    if (!publishedAt) return;
     await revalidateNextJs('entry.create', slug);
   },
 
+  async beforeUpdate(event: any) {
+    const id = event.params?.where?.id;
+    if (id) {
+      try {
+        const existing = await strapi.db.query('api::sub-category.sub-category').findOne({
+          where: { id },
+          select: ['publishedAt'],
+        });
+        event.state = { wasPublished: !!existing?.publishedAt };
+      } catch {
+        event.state = { wasPublished: false };
+      }
+    }
+  },
+
   async afterUpdate(event: any) {
-    const { slug } = event.result ?? {};
+    const { slug, publishedAt } = event.result ?? {};
+    const wasPublished = event.state?.wasPublished ?? false;
+    const isPublished = !!publishedAt;
+
+    if (wasPublished === isPublished) {
+      strapi.log.debug(`[lifecycle:sub-category] Skipping revalidation for "${slug}" — publish state unchanged`);
+      return;
+    }
+
     await revalidateNextJs('entry.update', slug);
   },
 
   async afterDelete(event: any) {
-    const { slug } = event.result ?? {};
+    const { slug, publishedAt } = event.result ?? {};
+    if (!publishedAt) return;
     await revalidateNextJs('entry.delete', slug);
   },
 };

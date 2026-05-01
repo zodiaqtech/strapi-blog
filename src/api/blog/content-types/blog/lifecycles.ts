@@ -48,37 +48,61 @@ async function revalidateNextJs(slug?: string, locale?: string): Promise<void> {
 }
 
 export default {
-  /** Blog created (new draft or direct publish) */
+  /** Blog created — only revalidate if created as published (visible to users) */
   async afterCreate(event: any) {
-    const { slug, locale } = event.result ?? {};
-    if (!slug) return;
+    const { slug, locale, publishedAt } = event.result ?? {};
+    if (!slug || !publishedAt) return;
     clearCacheBySlug(slug, locale);
-    clearCacheByPath('/api/categories'); // listing pages must show this new blog
-    await revalidateNextJs(slug, locale);
-  },
-
-  /** Blog updated (content edit, publish, unpublish) */
-  async afterUpdate(event: any) {
-    const { slug, locale } = event.result ?? {};
-    if (!slug) return;
-    clearCacheBySlug(slug, locale);
-    clearCacheByPath('/api/categories'); // listing pages must reflect any visibility change
+    clearCacheByPath('/api/categories');
     await revalidateNextJs(slug, locale);
   },
 
   /**
-   * Blog deleted.
-   * Two revalidations:
-   *  1. Targeted — removes the cached page for this slug (Next.js will 404 it)
-   *  2. All listings — clears category/sub-category listing pages that referenced this blog
+   * Snapshot publishedAt before the update so afterUpdate can detect
+   * publish/unpublish transitions and skip draft-only saves.
    */
-  async afterDelete(event: any) {
-    const { slug, locale } = event.result ?? {};
+  async beforeUpdate(event: any) {
+    const id = event.params?.where?.id;
+    if (id) {
+      try {
+        const existing = await strapi.db.query('api::blog.blog').findOne({
+          where: { id },
+          select: ['publishedAt'],
+        });
+        event.state = { wasPublished: !!existing?.publishedAt };
+      } catch {
+        event.state = { wasPublished: false };
+      }
+    }
+  },
+
+  /** Blog updated — only revalidate on publish/unpublish transitions */
+  async afterUpdate(event: any) {
+    const { slug, locale, publishedAt } = event.result ?? {};
     if (!slug) return;
+
+    const wasPublished = event.state?.wasPublished ?? false;
+    const isPublished = !!publishedAt;
+
+    if (wasPublished === isPublished) {
+      strapi.log.debug(`[lifecycle] Skipping revalidation for "${slug}" — publish state unchanged`);
+      return;
+    }
+
+    strapi.log.info(`[lifecycle] Publish state changed for "${slug}": ${wasPublished} → ${isPublished}`);
     clearCacheBySlug(slug, locale);
-    clearCacheByPath('/api/categories'); // listing pages must no longer show this blog
-    await revalidateNextJs(slug, locale);   // bust the specific blog page
-    await revalidateNextJs();               // bust all listing/category pages
+    clearCacheByPath('/api/categories');
+    await revalidateNextJs(slug, locale);
+  },
+
+  /** Blog deleted — only revalidate if the deleted entry was published */
+  async afterDelete(event: any) {
+    const { slug, locale, publishedAt } = event.result ?? {};
+    if (!slug || !publishedAt) return;
+    clearCacheBySlug(slug, locale);
+    clearCacheByPath('/api/categories');
+    await revalidateNextJs(slug, locale);
+    await revalidateNextJs();
   },
 
 };
