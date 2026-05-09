@@ -71,8 +71,9 @@ export default {
     const wasPublished = event.state?.wasPublished ?? false;
     const isPublished = !!publishedAt;
 
-    if (wasPublished === isPublished) {
-      strapi.log.debug(`[lifecycle:category] Skipping revalidation for "${slug}" — publish state unchanged`);
+    // Only skip pure draft saves — both before and after are unpublished
+    if (!wasPublished && !isPublished) {
+      strapi.log.debug(`[lifecycle:category] Skipping revalidation for "${slug}" — draft save, not published`);
       return;
     }
 
