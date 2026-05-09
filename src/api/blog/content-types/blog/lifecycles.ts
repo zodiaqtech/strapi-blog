@@ -76,7 +76,15 @@ export default {
     }
   },
 
-  /** Blog updated — only revalidate on publish/unpublish transitions */
+  /**
+   * Blog updated — revalidate whenever the published row is touched.
+   *
+   * Cases:
+   *   draft save (unpublished → unpublished): wasPublished=false, isPublished=false → SKIP
+   *   first publish:                          wasPublished=false, isPublished=true  → revalidate
+   *   edit + re-publish (already published):  wasPublished=true,  isPublished=true  → revalidate ✅
+   *   unpublish:                              wasPublished=true,  isPublished=false → revalidate
+   */
   async afterUpdate(event: any) {
     const { slug, locale, publishedAt } = event.result ?? {};
     if (!slug) return;
@@ -84,12 +92,13 @@ export default {
     const wasPublished = event.state?.wasPublished ?? false;
     const isPublished = !!publishedAt;
 
-    if (wasPublished === isPublished) {
-      strapi.log.debug(`[lifecycle] Skipping revalidation for "${slug}" — publish state unchanged`);
+    // Only skip pure draft saves — both before and after are unpublished
+    if (!wasPublished && !isPublished) {
+      strapi.log.debug(`[lifecycle] Skipping revalidation for "${slug}" — draft save, not published`);
       return;
     }
 
-    strapi.log.info(`[lifecycle] Publish state changed for "${slug}": ${wasPublished} → ${isPublished}`);
+    strapi.log.info(`[lifecycle] Revalidating "${slug}" (wasPublished=${wasPublished}, isPublished=${isPublished})`);
     clearCacheBySlug(slug, locale);
     clearCacheByPath('/api/categories');
     await revalidateNextJs(slug, locale);
