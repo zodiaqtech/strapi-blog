@@ -17,6 +17,8 @@ export default factories.createCoreController('api::blog.blog', ({ strapi }) => 
       relatedArticles: {
         populate: {
           thumbnail: true,
+          category: { fields: ['slug', 'name'] },
+          sub_category: { fields: ['slug', 'name'] },
         },
       },
     };
