@@ -15,13 +15,32 @@ import { clearCacheBySlug, clearCacheByPath } from '../../../../middlewares/resp
  */
 
 /**
- * Send a revalidation request to the Next.js /api/revalidate endpoint.
+ * Look up the category and sub-category slugs for a blog by its database ID.
  *
- * categorySlug and subCategorySlug are extracted directly from event.result
- * (Strapi populates them in the lifecycle result) and included in the payload.
- * This eliminates the Next.js handler's dependency on a secondary fetchBlogMeta
- * API call — which is the root cause of new blogs not appearing on subcategory
- * listing pages when that second call fails or returns null.
+ * In Strapi v5, event.result does NOT auto-populate relations — category will
+ * only contain { documentId } without any other fields including slug. An
+ * explicit DB query is required to get the slug values reliably.
+ */
+async function fetchBlogRelationSlugs(
+  blogId: number,
+): Promise<{ categorySlug: string | null; subCategorySlug: string | null }> {
+  try {
+    const blog = await strapi.db.query('api::blog.blog').findOne({
+      where: { id: blogId },
+      populate: ['category', 'sub_category'],
+    });
+    return {
+      categorySlug:    blog?.category?.slug    ?? null,
+      subCategorySlug: blog?.sub_category?.slug ?? null,
+    };
+  } catch (err: any) {
+    strapi.log.warn(`[lifecycle:blog] Failed to fetch relation slugs for blog id=${blogId}: ${err.message}`);
+    return { categorySlug: null, subCategorySlug: null };
+  }
+}
+
+/**
+ * Send a revalidation request to the Next.js /api/revalidate endpoint.
  */
 async function revalidateNextJs(
   event: string,
@@ -71,11 +90,13 @@ async function revalidateNextJs(
 export default {
   /** Blog created — only revalidate if created as published (visible to users) */
   async afterCreate(event: any) {
-    const { slug, locale, publishedAt, category, sub_category } = event.result ?? {};
+    const { id, slug, locale, publishedAt } = event.result ?? {};
     if (!slug || !publishedAt) return;
     clearCacheBySlug(slug, locale);
     clearCacheByPath('/api/categories');
-    await revalidateNextJs('entry.create', slug, locale, category?.slug, sub_category?.slug);
+    // event.result does not auto-populate relations in Strapi v5 — fetch explicitly
+    const { categorySlug, subCategorySlug } = await fetchBlogRelationSlugs(id);
+    await revalidateNextJs('entry.create', slug, locale, categorySlug, subCategorySlug);
   },
 
   /**
@@ -126,8 +147,10 @@ export default {
     strapi.log.info(`[lifecycle:blog] Revalidating "${slug}" (event=${strapiEvent})`);
     clearCacheBySlug(slug, locale);
     clearCacheByPath('/api/categories');
-    const { category, sub_category } = event.result ?? {};
-    await revalidateNextJs(strapiEvent, slug, locale, category?.slug, sub_category?.slug);
+    // event.result does not auto-populate relations in Strapi v5 — fetch explicitly
+    const { id } = event.result ?? {};
+    const { categorySlug, subCategorySlug } = await fetchBlogRelationSlugs(id);
+    await revalidateNextJs(strapiEvent, slug, locale, categorySlug, subCategorySlug);
   },
 
   /**
@@ -139,11 +162,14 @@ export default {
    * Listing pages will update on the next category event or 30-day TTL expiry.
    */
   async afterDelete(event: any) {
-    const { slug, locale, publishedAt, category, sub_category } = event.result ?? {};
+    const { id, slug, locale, publishedAt } = event.result ?? {};
     if (!slug || !publishedAt) return;
     clearCacheBySlug(slug, locale);
     clearCacheByPath('/api/categories');
-    await revalidateNextJs('entry.delete', slug, locale, category?.slug, sub_category?.slug);
+    // event.result does not auto-populate relations in Strapi v5 — fetch explicitly.
+    // Note: on delete the blog may already be gone from DB, so null slugs are expected.
+    const { categorySlug, subCategorySlug } = await fetchBlogRelationSlugs(id);
+    await revalidateNextJs('entry.delete', slug, locale, categorySlug, subCategorySlug);
   },
 
 };
