@@ -14,7 +14,22 @@ import { clearCacheBySlug, clearCacheByPath } from '../../../../middlewares/resp
  *   NEXTJS_SITE_URL       — e.g. https://www.myzodiaq.in
  */
 
-async function revalidateNextJs(event: string, slug: string, locale?: string): Promise<void> {
+/**
+ * Send a revalidation request to the Next.js /api/revalidate endpoint.
+ *
+ * categorySlug and subCategorySlug are extracted directly from event.result
+ * (Strapi populates them in the lifecycle result) and included in the payload.
+ * This eliminates the Next.js handler's dependency on a secondary fetchBlogMeta
+ * API call — which is the root cause of new blogs not appearing on subcategory
+ * listing pages when that second call fails or returns null.
+ */
+async function revalidateNextJs(
+  event: string,
+  slug: string,
+  locale?: string,
+  categorySlug?: string | null,
+  subCategorySlug?: string | null,
+): Promise<void> {
   const nextjsUrl = process.env.NEXTJS_SITE_URL;
   const secret    = process.env.REVALIDATION_SECRET;
 
@@ -33,12 +48,17 @@ async function revalidateNextJs(event: string, slug: string, locale?: string): P
       body: JSON.stringify({
         event,
         model: 'blog',
-        entry: { slug, locale: locale ?? null },
+        entry: {
+          slug,
+          locale:           locale          ?? null,
+          categorySlug:     categorySlug    ?? null,
+          subCategorySlug:  subCategorySlug ?? null,
+        },
       }),
     });
 
     if (res.ok) {
-      strapi.log.info(`[lifecycle:blog] Next.js revalidated: event="${event}" slug="${slug}" locale="${locale ?? 'all'}"`);
+      strapi.log.info(`[lifecycle:blog] Next.js revalidated: event="${event}" slug="${slug}" category="${categorySlug ?? 'unknown'}" locale="${locale ?? 'all'}"`);
     } else {
       const text = await res.text().catch(() => '');
       strapi.log.warn(`[lifecycle:blog] Next.js revalidation failed: HTTP ${res.status} — ${text}`);
@@ -51,11 +71,11 @@ async function revalidateNextJs(event: string, slug: string, locale?: string): P
 export default {
   /** Blog created — only revalidate if created as published (visible to users) */
   async afterCreate(event: any) {
-    const { slug, locale, publishedAt } = event.result ?? {};
+    const { slug, locale, publishedAt, category, sub_category } = event.result ?? {};
     if (!slug || !publishedAt) return;
     clearCacheBySlug(slug, locale);
     clearCacheByPath('/api/categories');
-    await revalidateNextJs('entry.create', slug, locale);
+    await revalidateNextJs('entry.create', slug, locale, category?.slug, sub_category?.slug);
   },
 
   /**
@@ -106,7 +126,8 @@ export default {
     strapi.log.info(`[lifecycle:blog] Revalidating "${slug}" (event=${strapiEvent})`);
     clearCacheBySlug(slug, locale);
     clearCacheByPath('/api/categories');
-    await revalidateNextJs(strapiEvent, slug, locale);
+    const { category, sub_category } = event.result ?? {};
+    await revalidateNextJs(strapiEvent, slug, locale, category?.slug, sub_category?.slug);
   },
 
   /**
@@ -118,11 +139,11 @@ export default {
    * Listing pages will update on the next category event or 30-day TTL expiry.
    */
   async afterDelete(event: any) {
-    const { slug, locale, publishedAt } = event.result ?? {};
+    const { slug, locale, publishedAt, category, sub_category } = event.result ?? {};
     if (!slug || !publishedAt) return;
     clearCacheBySlug(slug, locale);
     clearCacheByPath('/api/categories');
-    await revalidateNextJs('entry.delete', slug, locale);
+    await revalidateNextJs('entry.delete', slug, locale, category?.slug, sub_category?.slug);
   },
 
 };
