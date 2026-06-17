@@ -92,7 +92,7 @@ export default {
   async afterCreate(event: any) {
     const { id, slug, locale, publishedAt } = event.result ?? {};
     if (!slug || !publishedAt) return;
-    clearCacheBySlug(slug, locale);
+    clearCacheBySlug(slug); // clear ALL locales — avoids stale fallback responses
     clearCacheByPath('/api/categories');
     // event.result does not auto-populate relations in Strapi v5 — fetch explicitly
     const { categorySlug, subCategorySlug } = await fetchBlogRelationSlugs(id);
@@ -145,7 +145,7 @@ export default {
     // "entry.unpublish" covers unpublish (publishedAt becomes null).
     const strapiEvent = isPublished ? 'entry.publish' : 'entry.unpublish';
     strapi.log.info(`[lifecycle:blog] Revalidating "${slug}" (event=${strapiEvent})`);
-    clearCacheBySlug(slug, locale);
+    clearCacheBySlug(slug); // clear ALL locales — avoids stale fallback responses
     clearCacheByPath('/api/categories');
     // event.result does not auto-populate relations in Strapi v5 — fetch explicitly
     const { id } = event.result ?? {};
@@ -164,7 +164,7 @@ export default {
   async afterDelete(event: any) {
     const { id, slug, locale, publishedAt } = event.result ?? {};
     if (!slug || !publishedAt) return;
-    clearCacheBySlug(slug, locale);
+    clearCacheBySlug(slug); // clear ALL locales — avoids stale fallback responses
     clearCacheByPath('/api/categories');
     // event.result does not auto-populate relations in Strapi v5 — fetch explicitly.
     // Note: on delete the blog may already be gone from DB, so null slugs are expected.
